@@ -1,0 +1,53 @@
+// This is comment
+
+/* sdvsdfsdfsdfs
+sdfsdgfsdgsfd
+asda*/
+class Main 
+{
+	field int a;
+	static int b;
+	function void main()
+	{
+		while (true) 
+		{
+			do Main.ConvertDecimal();
+		}
+		return;
+	}
+
+	function void ConvertDecimal()
+	{
+		var int num;
+		let num = Keyboard.readInt("Enter Decimal Number, and i will convert it to Binary format");
+		do Output.println();
+		do Output.printString("The Binary result is:");
+		do Output.println();
+		do Output.printString(Main.convertDecimalToBinary(num));
+		return;
+	}
+
+	function String convertDecimalToBinary(int toConvert)
+	{
+		var String binary;
+		var int num;
+		var int reminder ;
+		var char bit;
+
+		let binary = String.new(10);
+		let num = toConvert;
+		while (num > 0) 
+		{
+			let reminder = Main.mod(num,2);
+			let num = num / 2;
+			let bit = reminder + 48
+			do binary.appendChar(bit);
+		}
+		return binary;
+	}
+
+	function int mod(int a, int b)
+	{
+		return (a - ((a/b)*b));
+	}
+}
