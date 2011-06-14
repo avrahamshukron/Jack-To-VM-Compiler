@@ -1,3 +1,3 @@
-require 'JackParser.rb'
-parser = JackParser.new("Main.jack")
-parser.start()
+require 'JackTranslator.rb'
+t = JackTranslator.new("Main.jack")
+t.start()

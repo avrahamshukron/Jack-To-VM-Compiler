@@ -4,6 +4,35 @@ class Variable
   @@staticIndex = 0
   @@fieldIndex = 0
   
+  def self.argumentIndex=(arg)
+    @@argumentIndex = arg
+  end
+  
+  def self.argumentIndex
+    @@argumentIndex
+  end
+  
+  def self.fieldIndex=(fld)
+      @@fieldIndex = fld
+  end
+  def self.fieldIndex
+    @@fieldIndex
+  end
+  
+  def self.staticIndex=(stt)
+     @@staticIndex = stt
+  end
+  def self.staticIndex
+    @@staticIndex
+  end
+  
+  def self.localIndex=(lcl)
+        @@localIndex = lcl
+  end
+  def self.localIndex
+    @@localIndex
+  end
+  
   def initialize(name , type , kind)
     @name = name
     @type = type
@@ -25,22 +54,33 @@ class Variable
     end
   end
   
-  def getType
-    return @type
+  def type=(aType)
+    @type = aType
+  end
+  def type
+      @type
   end
   
-  def getDescriptor
-    return @kind
+  def kind=(aKind)
+    @kind = aKind
+  end
+  def kind
+    @kind
   end
   
-  def getIndex
-    return @index
+  def index=(aIndex)
+    @index = index
   end
+  def index
+    @index
+  end  
   
-  def getName
-    return @name
+  def name=(aName)
+    @name = aName
   end
-  
+  def name
+    @name
+  end
   #def to_s  
   #end
 end

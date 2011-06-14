@@ -30,7 +30,19 @@ class Token
   def getType
     return @type
   end
+  def type
+    @type
+  end
+  def type=(t)
+    @type=t
+  end
   
+  def value
+    @value
+  end
+  def value=(v)
+    @value=v
+  end
   def getValue
     return @value
   end

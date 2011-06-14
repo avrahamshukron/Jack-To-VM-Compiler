@@ -40,7 +40,7 @@ class Main
 		{
 			let reminder = Main.mod(num,2);
 			let num = num / 2;
-			let bit = reminder + 48
+			let bit = reminder + 48;
 			do binary.appendChar(bit);
 		}
 		return binary;

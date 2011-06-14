@@ -1,3 +1,3 @@
 require 'JackTokenizer.rb'
-t = JackTokenizer.new("Main.jack")
+t = JackTokenizer.new("Square.jack")
 t.Tokenize()
