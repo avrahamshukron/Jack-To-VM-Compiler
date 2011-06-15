@@ -10,7 +10,7 @@ class JackTokenizer
   SEMICOLON = ";"
   COMMA = ","
   PRIMITIVE_TYPE = ['int','char','boolean']
-  SUBRUTINE_DESCRIPTOR = ['costructor','function','method']
+  SUBRUTINE_DESCRIPTOR = ['constructor','function','method']
   CONSTANT_VALUE_KEYWORD = ['true','false','null','this'] 
   CLASS_VAR_DESCRIPTOR = ['field','static']
   UNARY_OPERATOR = ['-','~']
@@ -171,7 +171,7 @@ class JackTokenizer
   def keywordAppState(input)
     if input =~ /[a-z]/
       confirmChar()
-    elsif shouldStopToken(input)
+    elsif shouldStopToken(input) || input == "/"
       @currentState = State::START_STATE
       if isKeyword(@currentWord)
         printToken(Token.new(TokenType::KEYWORD, @currentWord))
@@ -379,7 +379,7 @@ class JackTokenizer
          when State::KEYWORD_APP_STATE
            if input =~ /[a-z]/
              confirmChar()
-           elsif shouldStopToken(input)
+           elsif shouldStopToken(input) || input == "/"
              @currentState = State::START_STATE
              if isKeyword(@currentWord)
                toReturn = (Token.new(TokenType::KEYWORD, @currentWord))

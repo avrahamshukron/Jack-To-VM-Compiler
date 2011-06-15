@@ -5,7 +5,7 @@ require "Variable.rb"
 class JackTranslator
   
   IF_TRUE_LABEL_TEMPLATE = "IF_TRUE_LABEL_"
-  IF_FALSE_LABEL_TEMPLATE = "IF_FALSE_LABEL_Number_"
+  IF_FALSE_LABEL_TEMPLATE = "IF_FALSE_LABEL_"
   IF_END_LABEL_TEMPLATE = "IF_END_LABEL_"
   
   WHILE_START_LABEL_TEMPLATE = "WHILE_START_LABEL_"
@@ -48,7 +48,11 @@ class JackTranslator
   end
   
   def printTokenAndReadNext
+    puts "Printing :" + @currentToken.value()
     readNextToken()
+    if @currentToken != nil
+      puts "New one is :" + @currentToken.value()
+    end
   end
   
   def matchingSymbol(name)
@@ -64,13 +68,13 @@ class JackTranslator
   def insertToSymbolTable(name,type,kind)
     case kind
         when "local" , "argument"
-          if ! @classSymbolTable.include?(name) 
+          if (!@methodSymbolTable.include?(name)) 
             @methodSymbolTable.store(name,Variable.new(name,type,kind))
           else
             printParseErrorMessage("Error: variable already exist")
           end
         when "static" ,"field"
-          if ! @methodSymbolTable.include?(name)
+          if ! @classSymbolTable.include?(name)
             @classSymbolTable.store(name,Variable.new(name,type,kind))
           else
             printParseErrorMessage("Error: variable already exist")
@@ -80,11 +84,15 @@ class JackTranslator
   
   def pushVariableNamed(varName)
     v = matchingSymbol(varName)
-    printToFile("push " + v.kind + " " + v.index.to_s())
+    kind = v.kind
+    kind.gsub!("field","this")
+    printToFile("push " + kind + " " + v.index.to_s())
   end
   
   def popToVariableNamed(varName)
     v = matchingSymbol(varName)
+    kind = v.kind
+    kind.gsub!("field","this")
     printToFile("pop " + v.kind + " " + v.index.to_s())
   end
   
@@ -181,8 +189,8 @@ class JackTranslator
     if (@currentToken.getType == TokenType::SUBRUTINE_DESCRIPTOR)
       
       # Checking whether it is a member function or class function
-      @isMemberFunction = (@currentToken.getValue == "method")   
-      @isConstructor = (@currentToken.getValue == "constructor") 
+      @isMemberFunction = (@currentToken.value == "method")   
+      @isConstructor = (@currentToken.value == "constructor") 
       printTokenAndReadNext()
       returnType()
       if @currentToken.getType == TokenType::IDENTIFIER
@@ -253,7 +261,7 @@ class JackTranslator
     when "static"
       toReturn = Variable.staticIndex
     end
-    return toReturn + 1
+    return toReturn
   end
   
   def translateSubrutinePrototype
@@ -346,10 +354,12 @@ class JackTranslator
         printTokenAndReadNext()
         pushVariableNamed(varName)
         printToFile("add")
+        return true
       else
         printParseErrorMessage("Expected \"]\"")
       end
     end
+    return false
   end
   
   def letStatement
@@ -358,13 +368,20 @@ class JackTranslator
       if @currentToken.getType == TokenType::IDENTIFIER
         varName = @currentToken.value
         printTokenAndReadNext()
-        atIndex(varName)
+        isArray = atIndex(varName)
         if @currentToken.getValue == "="
           printTokenAndReadNext()
           expression()
           if @currentToken.getType == TokenType::SEMICOLON
             printTokenAndReadNext()
-            pushVariableNamed(varName)
+            if isArray
+              printToFile("pop temp 0")
+              printToFile("pop pointer 1")
+              printToFile("push temp 0")
+              printToFile("pop that 0")
+            else
+              popToVariableNamed(varName)
+            end
           else
             printParseErrorMessage("Expected \";\" at the end of let statement")
           end
@@ -385,6 +402,7 @@ class JackTranslator
         subrutineCall()
         if @currentToken.getType == TokenType::SEMICOLON
           printTokenAndReadNext()
+          printToFile("pop temp 0")
         else
           printParseErrorMessage("Expected \";\" at the end of do statement")
         end
@@ -461,7 +479,7 @@ class JackTranslator
     @whileLabelCount += 1
     #####################################
     
-    printToFile("label " + WHILE_START_LABEL_TEMPLATE + currentLabelIndex)
+    printToFile("label " + WHILE_START_LABEL_TEMPLATE + currentLabelIndex.to_s())
  
     if @currentToken.getValue == "while"
       printTokenAndReadNext()
@@ -470,7 +488,7 @@ class JackTranslator
         expression()
         
         printToFile("not")
-        printToFile("if-goto " + WHILE_END_LABEL_TEMPLATE + currentLabelIndex)
+        printToFile("if-goto " + WHILE_END_LABEL_TEMPLATE + currentLabelIndex.to_s())
         
         if @currentToken.getValue == ")"
           printTokenAndReadNext()
@@ -480,8 +498,8 @@ class JackTranslator
             if @currentToken.getValue == "}"
               printTokenAndReadNext()
               
-              printToFile("goto " + WHILE_START_LABEL_TEMPLATE + currentLabelIndex)
-              printToFile("label " + WHILE_END_LABEL_TEMPLATE + currentLabelIndex)
+              printToFile("goto " + WHILE_START_LABEL_TEMPLATE + currentLabelIndex.to_s())
+              printToFile("label " + WHILE_END_LABEL_TEMPLATE + currentLabelIndex.to_s())
             else
               printParseErrorMessage("Expected \"}\" after while")
             end
@@ -514,9 +532,49 @@ class JackTranslator
     end
   end
   
-  def subrutineCall
-    namePath()
-    argsList()
+  def subrutineCall()
+    isMethodOfCurrentClass = false
+    isMethod = true
+    if @currentToken.type() == TokenType::IDENTIFIER
+      functionName = @currentToken.value()
+      printTokenAndReadNext()
+      if @currentToken.value == "."
+        printTokenAndReadNext()
+        varName = functionName
+        if @currentToken.type == TokenType::IDENTIFIER
+          functionName = @currentToken.value()
+          printTokenAndReadNext()
+          v = matchingSymbol(varName)
+          if v != nil
+            #This is a method
+            recieverClassName = v.type()
+            pushVariableNamed(v.name())
+          else
+            isMethod = false
+            recieverClassName = varName
+            #This is a function
+          end
+        end
+      else
+        isMethodOfCurrentClass = true
+      end    
+      if @currentToken.getValue == "("
+        if isMethodOfCurrentClass
+          printToFile("push pointer 0")
+          recieverClassName = @className
+        end
+        numberOfArgs = argsList()
+        if isMethod
+          numberOfArgs += 1
+        end
+        printToFile("call " + recieverClassName + "." + functionName + " " + numberOfArgs.to_s())
+      else 
+        printParseErrorMessage("Expected \"(\" for args list at subrutine call")
+        printParseErrorMessage("Current Token is: " + @currentToken.value.to_s())
+      end
+    else
+      printParseErrorMessage("Expected id")
+    end
   end
   
   def expressionOrVoid
@@ -537,6 +595,7 @@ class JackTranslator
       translateOperatorToFunctionCall(op)
     end
   end
+  
   def translateOperatorToFunctionCall(op)
     if op == "+"
       printToFile("add")
@@ -560,11 +619,23 @@ class JackTranslator
   end
   
   def translateStringLiteral(s)
-    printToFile("push constant " + s.length)
+    printToFile("push constant " + s.length.to_s())
     printToFile("call String.new 1")
     s.to_s().each_byte do |c|
-      printToFile("push constant " + c)
+      printToFile("push constant " + c.to_s())
       printToFile("call String.appendChar 2")
+    end
+  end
+  
+  def translateConstantValueKeyboard(value)
+    case value
+    when "this"
+      printToFile("push pointer 0")   
+    when "null", "false"
+      printToFile("push constant 0")
+    when "true"
+      printToFile("push constant 0")
+      printToFile("not")
     end
   end
   
@@ -578,6 +649,7 @@ class JackTranslator
       translateStringLiteral(value)
       printTokenAndReadNext()
     elsif type == TokenType::CONSTANT_VALUE_KEYWORD
+      translateConstantValueKeyboard(value)
       printTokenAndReadNext()
     elsif type == TokenType::IDENTIFIER
       idOrFunctionCall()
@@ -604,71 +676,98 @@ class JackTranslator
   
   def idOrFunctionCall
     if @currentToken.getType == TokenType::IDENTIFIER
+      varName = @currentToken.value
       printTokenAndReadNext()
-      maybeFunction()
+      if @currentToken.value == "[" || @currentToken.value == "(" || @currentToken.value == "."
+        maybeFunction(varName)
+      else
+        pushVariableNamed(varName)
+      end
     end
   end
   
   
-  def maybeFunction()
-    if @currentToken.getValue == "."
-      printTokenAndReadNext()
-      namePath()
-      argsList()
-    elsif @currentToken.getValue == "("
-      argsList()
-    elsif @currentToken.getValue == "["
-      atIndex()
+  def maybeFunction(varName)
+    isMethod = true
+    isMethodOfCurrentClass = false
+    if @currentToken.getValue == "["
+      isArray = atIndex(varName)
+      if isArray
+        printToFile("pop pointer 1")
+        printToFile("push that 0")
+      end
+    else
+      if @currentToken.value == "."
+        printTokenAndReadNext()
+        if @currentToken.type == TokenType::IDENTIFIER
+          functionName = @currentToken.value()
+          printTokenAndReadNext()
+          v = matchingSymbol(varName)
+          if v != nil
+            #This is a method
+            recieverClassName = v.type()
+            pushVariableNamed(v.name())
+          else
+          recieverClassName = varName
+            isMethod = false
+          #This is a function
+          end
+        end
+      else
+        isMethodOfCurrentClass = true
+      end
+      if @currentToken.value == "("
+        if isMethodOfCurrentClass
+          printToFile("push pointer 0")
+          recieverClassName = @className
+          functionName = varName
+        end
+        numberOfArgs = argsList()
+        if isMethod
+          numberOfArgs += 1
+        end
+        printToFile("call " + recieverClassName + "." + functionName + " " + numberOfArgs.to_s()) 
+      else
+        printParseErrorMessage("Expected \"(\" before args list at maybeFunction")
+        printParseErrorMessage("Current Token is: " + @currentToken.value.to_s())
+      end
     end
   end
   
   
   def argsList
-    if @currentToken.getValue == "("
+    counter = 0
+    if @currentToken.value == "("
       printTokenAndReadNext()
-      expressionListOrEmpty()
+      counter = expressionListOrEmpty()
       if @currentToken.getValue == ")"
         printTokenAndReadNext()
       else
-        printParseErrorMessage("Expected \")\"")
+        printParseErrorMessage("Expected \")\" at argsList")
       end
     else
-      printParseErrorMessage("Expected \"(\"")
+      printParseErrorMessage("Expected \"(\" at argsList")
     end
-  end
-  
-  def namePath
-    if @currentToken.getType == TokenType::IDENTIFIER
-      printTokenAndReadNext()
-      namePathCont()
-    else
-      printParseErrorMessage("Expected identifier")
-    end
-  end
-  
-  def namePathCont
-    if @currentToken.getValue == "."
-      printTokenAndReadNext()
-      namePath()
-    end
+    return counter
   end
   
   def expressionListOrEmpty
+    counter = 0
     if @currentToken.getValue != ")"
-      expressionList()
+      counter = expressionList()
     end
+    return counter
   end
   
   def expressionList
     expression()
-    expressionListCont()
-  end
-  
-  def expressionListCont
-    if @currentToken.getType == TokenType::COMMA
+    counter = 1
+    while @currentToken.getType == TokenType::COMMA
       printTokenAndReadNext()
-      expressionList()
+      expression()
+      counter += 1
     end
+    return counter
   end
   
 end
