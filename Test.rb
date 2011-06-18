@@ -1,4 +1,4 @@
 require 'JackTranslator.rb'
 
-t = JackTranslator.new("Square.jack")
+t = JackTranslator.new("Square\\Main.jack")
 t.start()
